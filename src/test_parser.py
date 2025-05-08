@@ -38,39 +38,41 @@ def parse_addresses():
             
             # Внедряем JavaScript для сбора tooltips
             tooltips_script = """
-            const tooltips = [];
-            
-            const observer = new MutationObserver((mutationsList) => {
-                for (const mutation of mutationsList) {
-                    mutation.addedNodes.forEach(node => {
-                        if (node.nodeType === 1 && node.classList.contains('okui-tooltip')) {
-                            const text = node.innerText.trim();
-                            if (!tooltips.includes(text)) {
-                                tooltips.push(text);
+            () => {
+                const tooltips = [];
+                
+                const observer = new MutationObserver((mutationsList) => {
+                    for (const mutation of mutationsList) {
+                        mutation.addedNodes.forEach(node => {
+                            if (node.nodeType === 1 && node.classList.contains('okui-tooltip')) {
+                                const text = node.innerText.trim();
+                                if (!tooltips.includes(text)) {
+                                    tooltips.push(text);
+                                }
                             }
-                        }
-                    });
-                }
-            });
-            
-            observer.observe(document.body, { childList: true, subtree: true });
-            
-            const addressElements = document.querySelectorAll('.okui-tooltip-neutral');
-            let delay = 500;
-            
-            return new Promise((resolve) => {
-                let processed = 0;
-                addressElements.forEach((el, i) => {
-                    setTimeout(() => {
-                        const event = new MouseEvent('mouseover', { bubbles: true });
-                        el.dispatchEvent(event);
-                        processed++;
-                        if (processed === addressElements.length) {
-                            setTimeout(() => resolve(tooltips), 1000);
-                        }
-                    }, i * delay);
+                        });
+                    }
                 });
-            });
+                
+                observer.observe(document.body, { childList: true, subtree: true });
+                
+                const addressElements = document.querySelectorAll('.okui-tooltip-neutral');
+                let delay = 500;
+                
+                return new Promise((resolve) => {
+                    let processed = 0;
+                    addressElements.forEach((el, i) => {
+                        setTimeout(() => {
+                            const event = new MouseEvent('mouseover', { bubbles: true });
+                            el.dispatchEvent(event);
+                            processed++;
+                            if (processed === addressElements.length) {
+                                setTimeout(() => resolve(tooltips), 1000);
+                            }
+                        }, i * delay);
+                    });
+                });
+            }
             """
             
             # Выполняем скрипт и получаем tooltips
