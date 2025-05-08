@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 def parse_addresses():
     addresses = {}
-    additional_addresses = {}
     
     with sync_playwright() as p:
         # Запускаем браузер в headless режиме
@@ -37,63 +36,67 @@ def parse_addresses():
             # Даем время на загрузку динамического контента
             time.sleep(2)
             
-            # Получаем все строки с адресами
-            address_blocks = page.query_selector_all('.index_wrapper__ns7tB')
-            logger.info(f"Найдено блоков с адресами: {len(address_blocks)}")
+            # Внедряем JavaScript для сбора tooltips
+            tooltips_script = """
+            const tooltips = [];
             
-            # Обрабатываем каждый блок
-            for i, block in enumerate(address_blocks, 1):
+            const observer = new MutationObserver((mutationsList) => {
+                for (const mutation of mutationsList) {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1 && node.classList.contains('okui-tooltip')) {
+                            const text = node.innerText.trim();
+                            if (!tooltips.includes(text)) {
+                                tooltips.push(text);
+                            }
+                        }
+                    });
+                }
+            });
+            
+            observer.observe(document.body, { childList: true, subtree: true });
+            
+            const addressElements = document.querySelectorAll('.okui-tooltip-neutral');
+            let delay = 500;
+            
+            return new Promise((resolve) => {
+                let processed = 0;
+                addressElements.forEach((el, i) => {
+                    setTimeout(() => {
+                        const event = new MouseEvent('mouseover', { bubbles: true });
+                        el.dispatchEvent(event);
+                        processed++;
+                        if (processed === addressElements.length) {
+                            setTimeout(() => resolve(tooltips), 1000);
+                        }
+                    }, i * delay);
+                });
+            });
+            """
+            
+            # Выполняем скрипт и получаем tooltips
+            logger.info("Запуск сбора tooltips...")
+            tooltips = page.evaluate(tooltips_script)
+            logger.info(f"Собрано tooltips: {len(tooltips)}")
+            
+            # Обрабатываем собранные tooltips
+            for tooltip in tooltips:
                 try:
-                    # Получаем ссылку с адресом
-                    link = block.query_selector('a.index_link__gPnZX')
-                    if link:
-                        # Получаем адрес из href
-                        href = link.get_attribute('href')
-                        address = href.split('/')[-1]
-                        
-                        # Получаем имя из span
-                        name_span = link.query_selector('span.oklink-ignore-locale')
-                        name = name_span.get_attribute('data-original') if name_span else None
-                        
+                    # Разбиваем текст на строки
+                    lines = tooltip.strip().split('\n')
+                    if len(lines) >= 2:
+                        name = lines[0].strip()
+                        address = lines[1].strip()
                         if address and name:
                             addresses[address] = name
                             print(f"\nАдрес: {address}")
                             print(f"Имя: {name}")
                             print("-" * 50)
                 except Exception as e:
-                    logger.error(f"Ошибка при обработке блока {i}: {e}")
-                    continue
-            
-            # Получаем дополнительные элементы с адресами
-            additional_blocks = page.query_selector_all('.index_title__9lx6D')
-            logger.info(f"Найдено дополнительных блоков: {len(additional_blocks)}")
-            
-            for block in additional_blocks:
-                try:
-                    text = block.text_content()
-                    if text:
-                        # Разбиваем текст на строки
-                        lines = text.strip().split('\n')
-                        if len(lines) >= 2:
-                            name = lines[0].strip()
-                            address = lines[1].strip()
-                            if address and name:
-                                additional_addresses[address] = name
-                                print(f"\n{address} ----->>>> {name}")
-                                print("-" * 50)
-                except Exception as e:
-                    logger.error(f"Ошибка при обработке дополнительного блока: {e}")
+                    logger.error(f"Ошибка при обработке tooltip: {e}")
                     continue
             
             # Выводим итоговую статистику
-            print(f"\nВсего найдено уникальных адресов (основных): {len(addresses)}")
-            print(f"Всего найдено уникальных адресов (дополнительных): {len(additional_addresses)}")
-            
-            # Сохраняем HTML для отладки
-            html_content = page.content()
-            with open('debug_page.html', 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            logger.info("HTML страницы сохранен в debug_page.html")
+            print(f"\nВсего найдено уникальных адресов: {len(addresses)}")
             
         except Exception as e:
             logger.error(f"Произошла ошибка: {e}")
