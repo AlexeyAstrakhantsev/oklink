@@ -36,10 +36,10 @@ def parse_addresses():
             # Даем время на загрузку динамического контента
             time.sleep(2)
             
-            # Внедряем JavaScript для сбора tooltips
-            tooltips_script = """
+            # Сначала настраиваем observer
+            setup_observer_script = """
             () => {
-                const tooltipData = [];
+                window.tooltipData = [];
                 
                 const observer = new MutationObserver((mutationsList) => {
                     for (const mutation of mutationsList) {
@@ -49,17 +49,17 @@ def parse_addresses():
                                 const lines = text.split('\\n');
                 
                                 if (lines.length === 2 && /^0x[a-f0-9]{40}$/i.test(lines[1])) {
-                                    tooltipData.push({
+                                    window.tooltipData.push({
                                         label: lines[0],
                                         address: lines[1],
                                     });
-                                    console.log('Parsed:', tooltipData[tooltipData.length - 1]);
+                                    console.log('Parsed:', window.tooltipData[window.tooltipData.length - 1]);
                                 } else if (/^0x[a-f0-9]{40}$/i.test(text)) {
-                                    tooltipData.push({
+                                    window.tooltipData.push({
                                         label: null,
                                         address: text,
                                     });
-                                    console.log('Parsed:', tooltipData[tooltipData.length - 1]);
+                                    console.log('Parsed:', window.tooltipData[window.tooltipData.length - 1]);
                                 }
                             }
                         });
@@ -67,30 +67,39 @@ def parse_addresses():
                 });
                 
                 observer.observe(document.body, { childList: true, subtree: true });
-                
+                return true;
+            }
+            """
+            
+            # Настраиваем observer
+            logger.info("Настройка observer...")
+            page.evaluate(setup_observer_script)
+            
+            # Теперь запускаем наведение мыши
+            hover_script = """
+            () => {
                 const addressElements = document.querySelectorAll('.index_innerClassName__6ivtc');
                 console.log('Найдено элементов с адресами:', addressElements.length);
                 
                 let delay = 500;
+                addressElements.forEach((el, i) => {
+                    setTimeout(() => {
+                        el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+                    }, i * delay);
+                });
                 
+                // Ждем завершения всех наведений
                 return new Promise((resolve) => {
-                    let processed = 0;
-                    addressElements.forEach((el, i) => {
-                        setTimeout(() => {
-                            el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-                            processed++;
-                            if (processed === addressElements.length) {
-                                setTimeout(() => resolve(tooltipData), 2000);
-                            }
-                        }, i * delay);
-                    });
+                    setTimeout(() => {
+                        resolve(window.tooltipData);
+                    }, (addressElements.length * delay) + 2000);
                 });
             }
             """
             
-            # Выполняем скрипт и получаем tooltips
-            logger.info("Запуск сбора tooltips...")
-            tooltips = page.evaluate(tooltips_script)
+            # Выполняем наведение мыши и получаем tooltips
+            logger.info("Запуск наведения мыши...")
+            tooltips = page.evaluate(hover_script)
             logger.info(f"Собрано tooltips: {len(tooltips)}")
             
             # Обрабатываем собранные tooltips
