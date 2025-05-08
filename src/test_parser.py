@@ -52,17 +52,15 @@ def parse_addresses():
                         
                         if address and name:
                             addresses[address] = name
-                            logger.info(f"Найден адрес: {address} -> {name}")
+                            print(f"\nАдрес: {address}")
+                            print(f"Имя: {name}")
+                            print("-" * 50)
                 except Exception as e:
                     logger.error(f"Ошибка при обработке блока: {e}")
                     continue
             
-            # Сохраняем результаты в файл
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"addresses_{timestamp}.json"
-            with open(filename, 'w') as f:
-                json.dump(addresses, f, indent=2)
-            logger.info(f"Результаты сохранены в файл: {filename}")
+            # Выводим итоговую статистику
+            print(f"\nВсего найдено уникальных адресов: {len(addresses)}")
             
         except Exception as e:
             logger.error(f"Произошла ошибка: {e}")
