@@ -1,39 +1,53 @@
 import asyncio
 from playwright.async_api import async_playwright
 
-async def scrape_tooltips(url, attempts=1):
-    results = set()
-
+async def scrape_tooltips(url: str, attempts: int = 5):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)  # headless=True если не хочешь видеть окно
         page = await browser.new_page()
 
-        for i in range(attempts):
-            print(f"\n🔁 Попытка {i + 1} из {attempts}")
-            await page.goto(url)
-            await page.wait_for_selector('.index_innerClassName__6ivtc')
+        await page.goto(url)
 
-            address_elements = await page.query_selector_all('.index_innerClassName__6ivtc')
-            print(f"🔍 Найдено {len(address_elements)} адресов")
+        tooltips = set()  # Множество для уникальных tooltips
+        for attempt in range(1, attempts + 1):
+            print(f"🔁 Попытка {attempt} из {attempts}")
+            try:
+                # Получаем все адреса (или другие интересующие элементы)
+                address_elements = await page.query_selector_all(".index_innerClassName__6ivtc")
+                print(f"🔍 Найдено {len(address_elements)} адресов")
 
-            for el in address_elements:
-                try:
-                    await el.hover()
-                    await page.wait_for_timeout(500)  # Подождать, пока tooltip появится
+                # Проходим по каждому элементу
+                for i in range(len(address_elements)):
+                    try:
+                        # Заново выбираем все элементы, чтобы избежать stale DOM references
+                        fresh_elements = await page.query_selector_all(".index_innerClassName__6ivtc")
+                        if i >= len(fresh_elements):
+                            continue
 
-                    tooltip = await page.query_selector('.okui-tooltip')
-                    if tooltip:
-                        text = await tooltip.inner_text()
-                        if text not in results:
-                            results.add(text)
-                            print(f"🟡 Tooltip:\n{text}\n{'-'*50}")
-                except Exception as e:
-                    print(f"⚠️ Ошибка: {e}")
+                        element = fresh_elements[i]
+                        await element.hover()
+                        await page.wait_for_timeout(300)  # небольшая пауза для появления tooltip
+
+                        tooltip_el = await page.query_selector(".okui-tooltip")
+                        if tooltip_el:
+                            text = await tooltip_el.inner_text()
+                            print(f"🟡 Tooltip: {text}")
+                            tooltips.add(text.strip())
+
+                    except Exception as e:
+                        print(f"⚠️ Ошибка при обработке элемента: {e}")
+                
+                print(f"✅ Всего уникальных tooltip'ов: {len(tooltips)}")
+                break
+
+            except Exception as e:
+                print(f"⚠️ Ошибка при попытке {attempt}: {e}")
+                if attempt == attempts:
+                    print("❌ Не удалось собрать все tooltips после нескольких попыток")
+                await page.reload()
+                await page.wait_for_timeout(2000)  # Задержка после перезагрузки страницы
 
         await browser.close()
 
-    print(f"\n✅ Всего уникальных tooltip'ов: {len(results)}")
-
-# Запустить
-if __name__ == "__main__":
-    asyncio.run(scrape_tooltips("https://www.oklink.com/ethereum/tx-list", attempts=1))
+# Запуск скрипта
+asyncio.run(scrape_tooltips("https://www.oklink.com/ethereum/tx-list", attempts=3))
