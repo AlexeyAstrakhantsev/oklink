@@ -39,15 +39,15 @@ def parse_addresses():
             # Внедряем JavaScript для сбора tooltips
             tooltips_script = """
             () => {
-                const tooltips = [];
+                const tooltips = new Set();
                 
                 const observer = new MutationObserver((mutationsList) => {
                     for (const mutation of mutationsList) {
                         mutation.addedNodes.forEach(node => {
                             if (node.nodeType === 1 && node.classList.contains('okui-tooltip')) {
                                 const text = node.innerText.trim();
-                                if (!tooltips.includes(text)) {
-                                    tooltips.push(text);
+                                if (text.includes('0x')) {
+                                    tooltips.add(text);
                                 }
                             }
                         });
@@ -60,7 +60,7 @@ def parse_addresses():
                 const addressElements = document.querySelectorAll('a[href^="/ethereum/address/"]');
                 console.log('Найдено элементов с адресами:', addressElements.length);
                 
-                let delay = 500;
+                let delay = 200; // уменьшаем задержку
                 
                 return new Promise((resolve) => {
                     let processed = 0;
@@ -70,7 +70,7 @@ def parse_addresses():
                             el.dispatchEvent(event);
                             processed++;
                             if (processed === addressElements.length) {
-                                setTimeout(() => resolve(tooltips), 2000);
+                                setTimeout(() => resolve(Array.from(tooltips)), 2000);
                             }
                         }, i * delay);
                     });
@@ -82,12 +82,6 @@ def parse_addresses():
             logger.info("Запуск сбора tooltips...")
             tooltips = page.evaluate(tooltips_script)
             logger.info(f"Собрано tooltips: {len(tooltips)}")
-            
-            # Сохраняем HTML страницы для отладки
-            html_content = page.content()
-            with open('debug_page.html', 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            logger.info("HTML страницы сохранен в debug_page.html")
             
             # Обрабатываем собранные tooltips
             for tooltip in tooltips:
