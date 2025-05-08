@@ -29,7 +29,7 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                         await page.wait_for_timeout(10000)  # увеличена задержка для появления tooltip
 
                         # Пытаемся найти tooltip, который может быть в другом элементе
-                        tooltip_el = await page.query_selector(".okui-tooltip")
+                        tooltip_el = await page.query_selector(".index_title__9lx6D")
                         if tooltip_el:
                             text = await tooltip_el.inner_text()
                             print(f"🟡 Tooltip: {text}")
