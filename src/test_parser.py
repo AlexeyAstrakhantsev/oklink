@@ -48,6 +48,7 @@ def parse_addresses():
                                 const text = node.innerText.trim();
                                 if (!tooltips.includes(text)) {
                                     tooltips.push(text);
+                                    console.log('Новый tooltip:', text);
                                 }
                             }
                         });
@@ -57,7 +58,9 @@ def parse_addresses():
                 observer.observe(document.body, { childList: true, subtree: true });
                 
                 const addressElements = document.querySelectorAll('.okui-tooltip-neutral');
-                let delay = 500;
+                console.log('Найдено элементов с адресами:', addressElements.length);
+                
+                let delay = 100;
                 
                 return new Promise((resolve) => {
                     let processed = 0;
@@ -65,6 +68,7 @@ def parse_addresses():
                         setTimeout(() => {
                             const event = new MouseEvent('mouseover', { bubbles: true });
                             el.dispatchEvent(event);
+                            console.log('Наведение на элемент:', el.textContent.trim());
                             processed++;
                             if (processed === addressElements.length) {
                                 setTimeout(() => resolve(tooltips), 2000);
@@ -86,27 +90,33 @@ def parse_addresses():
                     # Разбиваем текст на строки и удаляем пустые строки
                     lines = [line.strip() for line in tooltip.split('\n') if line.strip()]
                     
-                    # Проверяем, что у нас есть как минимум две строки
-                    if len(lines) >= 2:
-                        # Проверяем, что вторая строка похожа на адрес (начинается с 0x)
-                        if lines[1].startswith('0x'):
-                            name = lines[0]
-                            address = lines[1]
-                            addresses[address] = name
-                            print(f"\nАдрес: {address}")
-                            print(f"Имя: {name}")
+                    # Ищем строку с адресом (начинается с 0x)
+                    address_line = next((line for line in lines if line.startswith('0x')), None)
+                    if address_line:
+                        # Если есть строка перед адресом и она не похожа на адрес - это имя
+                        name_line = None
+                        if lines.index(address_line) > 0:
+                            prev_line = lines[lines.index(address_line) - 1]
+                            if not prev_line.startswith('0x'):
+                                name_line = prev_line
+                        
+                        # Сохраняем только если есть имя
+                        if name_line:
+                            addresses[address_line] = name_line
+                            print(f"\nАдрес: {address_line}")
+                            print(f"Имя: {name_line}")
                             print("-" * 50)
                         else:
-                            logger.warning(f"Пропущен tooltip (неверный формат адреса): {tooltip}")
+                            logger.debug(f"Пропущен адрес без имени: {address_line}")
                     else:
-                        logger.warning(f"Пропущен tooltip (недостаточно строк): {tooltip}")
+                        logger.warning(f"Пропущен tooltip (не найден адрес): {tooltip}")
                 except Exception as e:
                     logger.error(f"Ошибка при обработке tooltip: {e}")
                     logger.error(f"Содержимое tooltip: {tooltip}")
                     continue
             
             # Выводим итоговую статистику
-            print(f"\nВсего найдено уникальных адресов: {len(addresses)}")
+            print(f"\nВсего найдено уникальных адресов с именами: {len(addresses)}")
             
         except Exception as e:
             logger.error(f"Произошла ошибка: {e}")
