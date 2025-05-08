@@ -5,7 +5,7 @@ async def scrape_tooltips(url, attempts=1):
     results = set()
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)  # headless=True если не хочешь видеть окно
+        browser = await p.chromium.launch(headless=True)  # headless=True если не хочешь видеть окно
         page = await browser.new_page()
 
         for i in range(attempts):
