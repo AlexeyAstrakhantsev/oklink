@@ -10,8 +10,10 @@ RUN apt-get update && apt-get install -y \
 # Создаем рабочую директорию
 WORKDIR /app
 
-# Копируем только requirements.txt
+# Копируем файлы проекта
 COPY requirements.txt .
+COPY src/ src/
+COPY .env .
 
 # Устанавливаем зависимости
 RUN pip install --no-cache-dir -r requirements.txt
