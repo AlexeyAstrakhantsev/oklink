@@ -56,7 +56,10 @@ def parse_addresses():
                 
                 observer.observe(document.body, { childList: true, subtree: true });
                 
-                const addressElements = document.querySelectorAll('.okui-tooltip-neutral');
+                // Ищем все элементы с адресами
+                const addressElements = document.querySelectorAll('a[href^="/ethereum/address/"]');
+                console.log('Найдено элементов с адресами:', addressElements.length);
+                
                 let delay = 500;
                 
                 return new Promise((resolve) => {
@@ -79,6 +82,12 @@ def parse_addresses():
             logger.info("Запуск сбора tooltips...")
             tooltips = page.evaluate(tooltips_script)
             logger.info(f"Собрано tooltips: {len(tooltips)}")
+            
+            # Сохраняем HTML страницы для отладки
+            html_content = page.content()
+            with open('debug_page.html', 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            logger.info("HTML страницы сохранен в debug_page.html")
             
             # Обрабатываем собранные tooltips
             for tooltip in tooltips:
