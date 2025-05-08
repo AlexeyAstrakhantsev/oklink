@@ -39,15 +39,15 @@ def parse_addresses():
             # Внедряем JavaScript для сбора tooltips
             tooltips_script = """
             () => {
-                const tooltips = new Set();
+                const tooltips = [];
                 
                 const observer = new MutationObserver((mutationsList) => {
                     for (const mutation of mutationsList) {
                         mutation.addedNodes.forEach(node => {
                             if (node.nodeType === 1 && node.classList.contains('okui-tooltip')) {
                                 const text = node.innerText.trim();
-                                if (text.includes('0x')) {
-                                    tooltips.add(text);
+                                if (!tooltips.includes(text)) {
+                                    tooltips.push(text);
                                 }
                             }
                         });
@@ -56,11 +56,8 @@ def parse_addresses():
                 
                 observer.observe(document.body, { childList: true, subtree: true });
                 
-                // Ищем все элементы с адресами
-                const addressElements = document.querySelectorAll('a[href^="/ethereum/address/"]');
-                console.log('Найдено элементов с адресами:', addressElements.length);
-                
-                let delay = 200; // уменьшаем задержку
+                const addressElements = document.querySelectorAll('.okui-tooltip-neutral');
+                let delay = 500;
                 
                 return new Promise((resolve) => {
                     let processed = 0;
@@ -70,7 +67,7 @@ def parse_addresses():
                             el.dispatchEvent(event);
                             processed++;
                             if (processed === addressElements.length) {
-                                setTimeout(() => resolve(Array.from(tooltips)), 2000);
+                                setTimeout(() => resolve(tooltips), 2000);
                             }
                         }, i * delay);
                     });
