@@ -28,8 +28,9 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                         text = await element.inner_text()
                         text = text.strip()
                         
-                        # Если в тексте только адрес (начинается с 0x) - пропускаем
-                        if re.match(r'^0x[a-fA-F0-9]{40}$', text):
+                        # Проверяем, содержит ли текст что-то кроме адреса
+                        # Если текст содержит только адрес или сокращенный адрес - пропускаем
+                        if re.match(r'^0x[a-fA-F0-9]{40}$', text) or re.match(r'^0x[a-fA-F0-9]{4}\.\.\.[a-fA-F0-9]{4}$', text):
                             print(f"⏩ Пропускаем элемент только с адресом: {text}")
                             continue
                             
