@@ -10,9 +10,8 @@ RUN apt-get update && apt-get install -y \
 # Создаем рабочую директорию
 WORKDIR /app
 
-# Копируем файлы проекта
+# Копируем только requirements.txt
 COPY requirements.txt .
-COPY src/ ./src/
 
 # Устанавливаем зависимости
 RUN pip install --no-cache-dir -r requirements.txt
@@ -20,6 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Устанавливаем Playwright и его зависимости
 RUN playwright install chromium
 RUN playwright install-deps
+
+# Создаем точку монтирования для кода
+VOLUME ["/app/src"]
 
 # Создаем директорию для результатов
 RUN mkdir -p /app/results
