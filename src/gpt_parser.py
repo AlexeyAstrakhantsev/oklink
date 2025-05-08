@@ -26,7 +26,7 @@ async def scrape_tooltips(url: str, attempts: int = 5):
 
                         element = fresh_elements[i]
                         await element.hover()
-                        await page.wait_for_timeout(10000)  # увеличена задержка для появления tooltip
+                        await page.wait_for_timeout(1000)  # увеличена задержка для появления tooltip
 
                         # Пытаемся найти tooltip, который может быть в другом элементе
                         tooltip_el = await page.query_selector(".index_title__9lx6D")
