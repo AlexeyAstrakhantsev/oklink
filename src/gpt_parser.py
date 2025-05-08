@@ -3,7 +3,7 @@ from playwright.async_api import async_playwright
 
 async def scrape_tooltips(url: str, attempts: int = 5):
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)  # headless=True если не хочешь видеть окно
+        browser = await p.chromium.launch(headless=True)  # headless=True, чтобы не показывать браузер
         page = await browser.new_page()
 
         await page.goto(url)
@@ -26,8 +26,9 @@ async def scrape_tooltips(url: str, attempts: int = 5):
 
                         element = fresh_elements[i]
                         await element.hover()
-                        await page.wait_for_timeout(300)  # небольшая пауза для появления tooltip
+                        await page.wait_for_timeout(500)  # увеличена задержка для появления tooltip
 
+                        # Пытаемся найти tooltip, который может быть в другом элементе
                         tooltip_el = await page.query_selector(".okui-tooltip")
                         if tooltip_el:
                             text = await tooltip_el.inner_text()
