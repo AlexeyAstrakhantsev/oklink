@@ -57,27 +57,42 @@ def parse_addresses():
                 observer.observe(document.body, { childList: true, subtree: true });
                 
                 const addressElements = document.querySelectorAll('.okui-tooltip-neutral');
-                let delay = 500;
+                let delay = 100; // уменьшаем задержку
                 
-                return new Promise((resolve) => {
-                    let processed = 0;
-                    addressElements.forEach((el, i) => {
+                // Функция для эмуляции наведения мыши
+                function hoverElement(element) {
+                    const event = new MouseEvent('mouseover', { bubbles: true });
+                    element.dispatchEvent(event);
+                }
+                
+                // Обрабатываем элементы с интервалом
+                let index = 0;
+                const interval = setInterval(() => {
+                    if (index < addressElements.length) {
+                        hoverElement(addressElements[index]);
+                        index++;
+                    } else {
+                        clearInterval(interval);
+                        // Возвращаем собранные tooltips через 2 секунды
                         setTimeout(() => {
-                            const event = new MouseEvent('mouseover', { bubbles: true });
-                            el.dispatchEvent(event);
-                            processed++;
-                            if (processed === addressElements.length) {
-                                setTimeout(() => resolve(tooltips), 1000);
-                            }
-                        }, i * delay);
-                    });
-                });
+                            window.tooltips = tooltips;
+                        }, 2000);
+                    }
+                }, delay);
+                
+                return true;
             }
             """
             
-            # Выполняем скрипт и получаем tooltips
+            # Выполняем скрипт
             logger.info("Запуск сбора tooltips...")
-            tooltips = page.evaluate(tooltips_script)
+            page.evaluate(tooltips_script)
+            
+            # Ждем 5 секунд для сбора tooltips
+            time.sleep(5)
+            
+            # Получаем собранные tooltips
+            tooltips = page.evaluate("() => window.tooltips || []")
             logger.info(f"Собрано tooltips: {len(tooltips)}")
             
             # Обрабатываем собранные tooltips
