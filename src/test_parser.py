@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 def parse_addresses():
     addresses = {}
+    additional_addresses = {}
+    
     with sync_playwright() as p:
         # Запускаем браузер в headless режиме
         browser = p.chromium.launch(
@@ -53,25 +55,39 @@ def parse_addresses():
                         name_span = link.query_selector('span.oklink-ignore-locale')
                         name = name_span.get_attribute('data-original') if name_span else None
                         
-                        # Выводим отладочную информацию
-                        logger.info(f"Обработка блока {i}:")
-                        logger.info(f"  href: {href}")
-                        logger.info(f"  address: {address}")
-                        logger.info(f"  name: {name}")
-                        
                         if address and name:
                             addresses[address] = name
                             print(f"\nАдрес: {address}")
                             print(f"Имя: {name}")
                             print("-" * 50)
-                        else:
-                            logger.info("  Пропуск: нет адреса или имени")
                 except Exception as e:
                     logger.error(f"Ошибка при обработке блока {i}: {e}")
                     continue
             
+            # Получаем дополнительные элементы с адресами
+            additional_blocks = page.query_selector_all('.index_title__9lx6D')
+            logger.info(f"Найдено дополнительных блоков: {len(additional_blocks)}")
+            
+            for block in additional_blocks:
+                try:
+                    text = block.text_content()
+                    if text:
+                        # Разбиваем текст на строки
+                        lines = text.strip().split('\n')
+                        if len(lines) >= 2:
+                            name = lines[0].strip()
+                            address = lines[1].strip()
+                            if address and name:
+                                additional_addresses[address] = name
+                                print(f"\n{address} ----->>>> {name}")
+                                print("-" * 50)
+                except Exception as e:
+                    logger.error(f"Ошибка при обработке дополнительного блока: {e}")
+                    continue
+            
             # Выводим итоговую статистику
-            print(f"\nВсего найдено уникальных адресов: {len(addresses)}")
+            print(f"\nВсего найдено уникальных адресов (основных): {len(addresses)}")
+            print(f"Всего найдено уникальных адресов (дополнительных): {len(additional_addresses)}")
             
             # Сохраняем HTML для отладки
             html_content = page.content()
