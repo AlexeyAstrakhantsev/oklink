@@ -27,4 +27,4 @@ VOLUME ["/app/src"]
 RUN mkdir -p /app/results
 
 # Запускаем скрипт
-CMD ["python", "src/test_parser.py"]
+CMD ["python", "src/gpt_parser.py"]

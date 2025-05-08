@@ -75,22 +75,47 @@ def parse_addresses():
             logger.info("Настройка observer...")
             page.evaluate(setup_observer_script)
             
+            # Проверяем наличие элементов перед наведением
+            check_elements_script = """
+            () => {
+                const elements = document.querySelectorAll('a[href^="/ethereum/address/"]');
+                console.log('Найдено элементов с адресами:', elements.length);
+                if (elements.length > 0) {
+                    console.log('Пример элемента:', elements[0].outerHTML);
+                }
+                return elements.length;
+            }
+            """
+            
+            elements_count = page.evaluate(check_elements_script)
+            logger.info(f"Найдено элементов с адресами: {elements_count}")
+            
+            if elements_count == 0:
+                # Сохраняем HTML для отладки
+                html_content = page.content()
+                with open('debug_page.html', 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                logger.error("Элементы с адресами не найдены. HTML сохранен в debug_page.html")
+                return
+            
             # Теперь запускаем наведение мыши
             hover_script = """
             () => {
-                const addressElements = document.querySelectorAll('.index_innerClassName__6ivtc');
+                const addressElements = document.querySelectorAll('a[href^="/ethereum/address/"]');
                 console.log('Найдено элементов с адресами:', addressElements.length);
                 
                 let delay = 500;
                 addressElements.forEach((el, i) => {
                     setTimeout(() => {
                         el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+                        console.log('Наведение на элемент:', el.textContent.trim());
                     }, i * delay);
                 });
                 
                 // Ждем завершения всех наведений
                 return new Promise((resolve) => {
                     setTimeout(() => {
+                        console.log('Собранные tooltips:', window.tooltipData);
                         resolve(window.tooltipData);
                     }, (addressElements.length * delay) + 2000);
                 });
