@@ -21,102 +21,105 @@ class Database:
         finally:
             self.pool.putconn(conn)
 
+    def init_tables(self):
+        """Инициализация таблиц при первом запуске"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                # Создаем таблицу тегов
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS tags (
+                        id SERIAL PRIMARY KEY,
+                        tag_oklink VARCHAR(255) UNIQUE NOT NULL,
+                        tag_unified VARCHAR(255),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Создаем таблицу адресов
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS addresses (
+                        id SERIAL PRIMARY KEY,
+                        address VARCHAR(42) UNIQUE NOT NULL,
+                        name VARCHAR(255),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Создаем таблицу связи адресов и тегов
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS address_tags (
+                        address_id INTEGER REFERENCES addresses(id),
+                        tag_id INTEGER REFERENCES tags(id),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (address_id, tag_id)
+                    )
+                """)
+                
+                conn.commit()
+                logging.info("Tables initialized successfully")
+
 class AddressRepository:
     def __init__(self, db):
         self.db = db
 
     def save_address(self, address_data):
+        """
+        Сохраняет адрес и его теги в базу данных
+        
+        address_data: dict с полями:
+            - address: str (адрес)
+            - name: str (имя)
+            - tag: str (тег из OKLink)
+        """
         with self.db.get_connection() as conn:
             with conn.cursor() as cur:
                 try:
-                    # Создаем копию данных для логов без icon_data
-                    loggable_data = {k: v for k, v in address_data.items() if k != 'icon_data'}
-                    
                     # Логирование перед сохранением
                     logging.debug(f"Сохранение адреса: {address_data['address']}")
-                    logging.debug(f"Данные для сохранения: {json.dumps(loggable_data, default=str, indent=2)}")
                     
-                    # Сохраняем адрес в основную таблицу
+                    # Сохраняем адрес
                     cur.execute("""
-                        INSERT INTO addresses (address, name, icon, icon_url)
-                        VALUES (%s, %s, %s::bytea, %s)
+                        INSERT INTO addresses (address, name)
+                        VALUES (%s, %s)
                         ON CONFLICT (address) 
                         DO UPDATE SET 
-                            name = EXCLUDED.name,
-                            icon = EXCLUDED.icon::bytea,
-                            icon_url = EXCLUDED.icon_url
+                            name = EXCLUDED.name
                         RETURNING id
                     """, (
                         address_data['address'],
-                        address_data['name'],
-                        address_data.get('icon_data'),
-                        address_data.get('icon_url')
+                        address_data['name']
                     ))
                     address_id = cur.fetchone()[0]
                     logging.debug(f"Saved to addresses table, got id: {address_id}")
                     
-                    # Сохраняем в unified_addresses
-                    tags = address_data.get('tags', [])
-                    address_name = address_data['name'] if address_data['name'] else (tags[0] if tags else '')
-                    
-                    logging.debug(f"Preparing unified_addresses data: address={address_data['address']}, name={address_name}")
-                    
-                    # Получаем тип из тегов
-                    tag_type = None
-                    if tags:
+                    # Сохраняем тег
+                    if 'tag' in address_data:
                         cur.execute("""
-                            SELECT t.type 
-                            FROM tags t
-                            JOIN address_tags at ON t.id = at.tag_id
-                            JOIN addresses a ON at.address_id = a.id
-                            WHERE a.address = %s
-                            LIMIT 1
-                        """, (address_data['address'],))
+                            INSERT INTO tags (tag_oklink)
+                            VALUES (%s)
+                            ON CONFLICT (tag_oklink) DO NOTHING
+                            RETURNING id
+                        """, (address_data['tag'],))
                         result = cur.fetchone()
-                        tag_type = result[0] if result else None
-                    
-                    cur.execute("""
-                        INSERT INTO unified_addresses (address, address_name, type, source)
-                        VALUES (%s, %s, %s, %s)
-                        ON CONFLICT (address) 
-                        DO UPDATE SET 
-                            address_name = EXCLUDED.address_name,
-                            type = COALESCE(EXCLUDED.type, unified_addresses.type),
-                            source = EXCLUDED.source
-                        RETURNING id
-                    """, (
-                        address_data['address'],
-                        address_name,
-                        tag_type or "",  # Используем тип из тега или пустую строку
-                        "ethplorer.io tag"
-                    ))
-                    unified_id = cur.fetchone()[0]
-                    logging.debug(f"Saved to unified_addresses, got id: {unified_id}")
-                    
-                    # Сохраняем теги
-                    if 'tags' in address_data:
-                        for tag in address_data['tags']:
-                            # Добавляем тег если его нет
+                        
+                        if result:
+                            tag_id = result[0]
+                        else:
+                            # Если тег уже существует, получаем его id
                             cur.execute("""
-                                INSERT INTO tags (tag, type)
-                                VALUES (%s, COALESCE(%s, 'other'))
-                                ON CONFLICT (tag) DO UPDATE SET 
-                                    tag = EXCLUDED.tag
-                                RETURNING id
-                            """, (tag, address_data.get('type')))
+                                SELECT id FROM tags WHERE tag_oklink = %s
+                            """, (address_data['tag'],))
                             tag_id = cur.fetchone()[0]
-                            # Связываем адрес с тегом
-                            cur.execute("""
-                                INSERT INTO address_tags (address_id, tag_id)
-                                VALUES (%s, %s)
-                                ON CONFLICT (address_id, tag_id) DO NOTHING
-                            """, (address_id, tag_id))
+                        
+                        # Связываем адрес с тегом
+                        cur.execute("""
+                            INSERT INTO address_tags (address_id, tag_id)
+                            VALUES (%s, %s)
+                            ON CONFLICT (address_id, tag_id) DO NOTHING
+                        """, (address_id, tag_id))
                     
                     conn.commit()
-                    logging.debug(f"Successfully saved address {address_data['address']} to all tables")
-                    
-                    # Логирование после сохранения
-                    logging.debug(f"Успешно сохранено {len(address_data.get('tags', []))} тегов для адреса {address_data['address']}")
+                    logging.debug(f"Successfully saved address {address_data['address']} with tag {address_data.get('tag')}")
                     
                 except Exception as e:
                     conn.rollback()
