@@ -57,59 +57,52 @@ def parse_addresses():
                 observer.observe(document.body, { childList: true, subtree: true });
                 
                 const addressElements = document.querySelectorAll('.okui-tooltip-neutral');
-                let delay = 100; // уменьшаем задержку
+                let delay = 500;
                 
-                // Функция для эмуляции наведения мыши
-                function hoverElement(element) {
-                    const event = new MouseEvent('mouseover', { bubbles: true });
-                    element.dispatchEvent(event);
-                }
-                
-                // Обрабатываем элементы с интервалом
-                let index = 0;
-                const interval = setInterval(() => {
-                    if (index < addressElements.length) {
-                        hoverElement(addressElements[index]);
-                        index++;
-                    } else {
-                        clearInterval(interval);
-                        // Возвращаем собранные tooltips через 2 секунды
+                return new Promise((resolve) => {
+                    let processed = 0;
+                    addressElements.forEach((el, i) => {
                         setTimeout(() => {
-                            window.tooltips = tooltips;
-                        }, 2000);
-                    }
-                }, delay);
-                
-                return true;
+                            const event = new MouseEvent('mouseover', { bubbles: true });
+                            el.dispatchEvent(event);
+                            processed++;
+                            if (processed === addressElements.length) {
+                                setTimeout(() => resolve(tooltips), 2000);
+                            }
+                        }, i * delay);
+                    });
+                });
             }
             """
             
-            # Выполняем скрипт
+            # Выполняем скрипт и получаем tooltips
             logger.info("Запуск сбора tooltips...")
-            page.evaluate(tooltips_script)
-            
-            # Ждем 5 секунд для сбора tooltips
-            time.sleep(5)
-            
-            # Получаем собранные tooltips
-            tooltips = page.evaluate("() => window.tooltips || []")
+            tooltips = page.evaluate(tooltips_script)
             logger.info(f"Собрано tooltips: {len(tooltips)}")
             
             # Обрабатываем собранные tooltips
             for tooltip in tooltips:
                 try:
-                    # Разбиваем текст на строки
-                    lines = tooltip.strip().split('\n')
+                    # Разбиваем текст на строки и удаляем пустые строки
+                    lines = [line.strip() for line in tooltip.split('\n') if line.strip()]
+                    
+                    # Проверяем, что у нас есть как минимум две строки
                     if len(lines) >= 2:
-                        name = lines[0].strip()
-                        address = lines[1].strip()
-                        if address and name:
+                        # Проверяем, что вторая строка похожа на адрес (начинается с 0x)
+                        if lines[1].startswith('0x'):
+                            name = lines[0]
+                            address = lines[1]
                             addresses[address] = name
                             print(f"\nАдрес: {address}")
                             print(f"Имя: {name}")
                             print("-" * 50)
+                        else:
+                            logger.warning(f"Пропущен tooltip (неверный формат адреса): {tooltip}")
+                    else:
+                        logger.warning(f"Пропущен tooltip (недостаточно строк): {tooltip}")
                 except Exception as e:
                     logger.error(f"Ошибка при обработке tooltip: {e}")
+                    logger.error(f"Содержимое tooltip: {tooltip}")
                     continue
             
             # Выводим итоговую статистику
