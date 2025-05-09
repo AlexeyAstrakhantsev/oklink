@@ -1,5 +1,5 @@
 # script1/Dockerfile
-FROM mcr.microsoft.com/playwright/python:v1.40.0
+FROM mcr.microsoft.com/playwright/python:v1.42.0-jammy
 
 # Создаем рабочую директорию
 WORKDIR /app
