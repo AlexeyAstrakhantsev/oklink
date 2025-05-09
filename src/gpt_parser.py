@@ -146,7 +146,7 @@ async def scrape_tooltips(url: str, attempts: int = 5):
 
                 # Пауза между итерациями (10 секунд)
                 logger.info("💤 Пауза 10 секунд перед следующей итерацией...")
-                await asyncio.sleep(10)
+                await asyncio.sleep(2)
 
             except Exception as e:
                 logger.error(f"❌ Критическая ошибка в основном цикле: {e}")
