@@ -38,13 +38,26 @@ async def scrape_tooltips(url: str, attempts: int = 5):
     
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
-
+        page = None  # Будем пересоздавать страницу при необходимости
+        
         while True:  # Бесконечный цикл
             try:
                 logger.info("🔄 Начинаем новую итерацию сбора данных")
-                await page.goto(url)
-                await page.wait_for_load_state('networkidle')
+                
+                # Создаем новую страницу, если нужно
+                if page is None or page.is_closed():
+                    logger.info("🌟 Создаем новую страницу браузера")
+                    page = await browser.new_page()
+                    
+                # Устанавливаем таймаут для операций
+                page.set_default_timeout(30000)  # 30 секунд на операции (вместо 60)
+                    
+                # Переходим на страницу с таймаутом
+                await page.goto(url, wait_until='networkidle', timeout=30000)
+                logger.info("✅ Страница загружена успешно")
+                
+                # Дополнительная пауза для полной загрузки
+                await page.wait_for_timeout(1000)  # 1 секунда вместо 2
 
                 tooltips = set()  # Множество для уникальных tooltips
                 for attempt in range(1, attempts + 1):
@@ -73,7 +86,7 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                 # Если есть дополнительный текст (имя) - делаем наведение
                                 logger.info(f"🔄 Наведение на элемент с именем: {text}")
                                 await element.hover()
-                                await page.wait_for_timeout(300)  # Пауза для появления tooltip
+                                await page.wait_for_timeout(300)  # Возвращаем прежние 300 мс вместо 500
 
                                 tooltip_el = await page.query_selector(".index_title__9lx6D")
                                 if tooltip_el:
@@ -92,8 +105,16 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                         logger.error(f"⚠️ Ошибка при попытке {attempt}: {e}")
                         if attempt == attempts:
                             logger.error("❌ Не удалось собрать все tooltips после нескольких попыток")
-                        await page.reload()
-                        await page.wait_for_timeout(3000)
+                        
+                        try:
+                            await page.reload(wait_until='networkidle', timeout=30000)
+                            await page.wait_for_timeout(2000)  # 2 секунды вместо 3
+                        except Exception as reload_error:
+                            logger.error(f"⚠️ Ошибка при перезагрузке страницы: {reload_error}")
+                            # Создаем новую страницу, так как текущая может быть сломана
+                            await page.close()
+                            page = await browser.new_page()
+                            await page.goto(url, wait_until='networkidle', timeout=30000)
 
                 # Обработка и сохранение tooltip'ов
                 parsed_results = []
@@ -129,9 +150,36 @@ async def scrape_tooltips(url: str, attempts: int = 5):
 
             except Exception as e:
                 logger.error(f"❌ Критическая ошибка в основном цикле: {e}")
-                logger.info("💤 Пауза 5 секунд перед повторной попыткой...")
-                await asyncio.sleep(5)
+                
+                # Пытаемся закрыть страницу, если она еще существует
+                try:
+                    if page and not page.is_closed():
+                        await page.close()
+                except:
+                    pass
+                    
+                # Сбрасываем страницу, чтобы создать новую в следующей итерации
+                page = None
+                
+                logger.info("💤 Пауза 10 секунд перед повторной попыткой...")
+                await asyncio.sleep(10)
+                
+                # Проверяем, не закрылся ли браузер
+                try:
+                    # Если браузер закрылся, создаем новый
+                    if browser.is_connected() == False:
+                        logger.info("🔄 Браузер отключен, запускаем новый")
+                        browser = await p.chromium.launch(headless=True)
+                except Exception as browser_error:
+                    logger.error(f"⚠️ Ошибка при проверке браузера: {browser_error}")
+                    browser = await p.chromium.launch(headless=True)
 
 # Запуск скрипта
 if __name__ == "__main__":
-    asyncio.run(scrape_tooltips("https://www.oklink.com/ethereum/tx-list", attempts=3))
+    while True:
+        try:
+            asyncio.run(scrape_tooltips("https://www.oklink.com/ethereum/tx-list", attempts=3))
+        except Exception as e:
+            logger.critical(f"🔥 Критическая ошибка вне основного цикла: {e}")
+            logger.info("💤 Перезапуск скрипта через 30 секунд...")
+            time.sleep(30)
