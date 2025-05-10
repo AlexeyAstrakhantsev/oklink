@@ -56,7 +56,7 @@ class Database:
                 """)
                 
                 conn.commit()
-                logging.info("Tables initialized successfully")
+                logging.info("Таблицы инициализированы успешно")
 
 class AddressRepository:
     def __init__(self, db):
@@ -90,9 +90,9 @@ class AddressRepository:
                         address_data['name']
                     ))
                     address_id = cur.fetchone()[0]
-                    logging.debug(f"Saved to addresses table, got id: {address_id}")
+                    logging.debug(f"Адрес сохранен в таблицу, id: {address_id}")
                     
-                    # Сохраняем тег
+                    # Сохраняем тег, если он есть
                     if 'tag' in address_data:
                         cur.execute("""
                             INSERT INTO tags (tag_oklink)
@@ -119,9 +119,9 @@ class AddressRepository:
                         """, (address_id, tag_id))
                     
                     conn.commit()
-                    logging.debug(f"Successfully saved address {address_data['address']} with tag {address_data.get('tag')}")
+                    logging.debug(f"Успешно сохранен адрес {address_data['address']} с тегом {address_data.get('tag')}")
                     
                 except Exception as e:
                     conn.rollback()
-                    logging.error(f"Error saving address to database: {str(e)}")
+                    logging.error(f"Ошибка при сохранении адреса {address_data['address']}: {str(e)}")
                     raise 
