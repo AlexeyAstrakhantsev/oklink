@@ -132,14 +132,28 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 # Обработка и сохранение tooltip'ов
                 parsed_results = []
                 for tooltip in tooltips:
-                    match = re.match(r"(?P<type>\w+):\s+(?P<name>.+?)\s+(?P<address>0x[a-fA-F0-9]{40})", tooltip)
-                    if match:
-                        result = {
-                            "type": match.group("type"),
-                            "name": match.group("name"),
-                            "address": match.group("address")
-                        }
-                        parsed_results.append(result)
+                    # Для Tron формат: "Type: Name\nAddress"
+                    if blockchain.lower() == 'tron':
+                        lines = tooltip.split('\n')
+                        if len(lines) == 2:
+                            type_name = lines[0].split(': ', 1)
+                            if len(type_name) == 2:
+                                result = {
+                                    "type": type_name[0],
+                                    "name": type_name[1],
+                                    "address": lines[1].strip()
+                                }
+                                parsed_results.append(result)
+                    else:
+                        # Для EVM формат: "Type: Name 0x..."
+                        match = re.match(r"(?P<type>\w+):\s+(?P<name>.+?)\s+(?P<address>0x[a-fA-F0-9]{40})", tooltip)
+                        if match:
+                            result = {
+                                "type": match.group("type"),
+                                "name": match.group("name"),
+                                "address": match.group("address")
+                            }
+                            parsed_results.append(result)
                         
                         # Сохраняем в базу данных
                         try:
