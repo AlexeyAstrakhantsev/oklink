@@ -10,6 +10,10 @@ import time
 # Загружаем переменные окружения
 load_dotenv()
 
+# Получаем настройки из переменных окружения
+blockchain = os.getenv('BLOCKCHAIN', 'ethereum')
+url = f"https://www.oklink.com/{blockchain}/tx-list"
+
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
@@ -133,7 +137,8 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                             address_data = {
                                 'address': result['address'],
                                 'name': result['name'],
-                                'tag': result['type']
+                                'tag': result['type'],
+                                'chain': blockchain
                             }
                             address_repo.save_address(address_data)
                             logger.info(f"✅ Сохранен адрес: {result['address']} с именем: {result['name']} и тегом: {result['type']}")
@@ -178,7 +183,7 @@ async def scrape_tooltips(url: str, attempts: int = 5):
 if __name__ == "__main__":
     while True:
         try:
-            asyncio.run(scrape_tooltips("https://www.oklink.com/ethereum/tx-list", attempts=3))
+            asyncio.run(scrape_tooltips(url, attempts=3))
         except Exception as e:
             logger.critical(f"🔥 Критическая ошибка вне основного цикла: {e}")
             logger.info("💤 Перезапуск скрипта через 30 секунд...")

@@ -41,6 +41,7 @@ class Database:
                         id SERIAL PRIMARY KEY,
                         address VARCHAR(42) UNIQUE NOT NULL,
                         name VARCHAR(255),
+                        chain VARCHAR(50) NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
@@ -79,15 +80,17 @@ class AddressRepository:
                     
                     # Сохраняем адрес
                     cur.execute("""
-                        INSERT INTO addresses (address, name)
-                        VALUES (%s, %s)
+                        INSERT INTO addresses (address, name, chain)
+                        VALUES (%s, %s, %s)
                         ON CONFLICT (address) 
                         DO UPDATE SET 
-                            name = EXCLUDED.name
+                            name = EXCLUDED.name,
+                            chain = EXCLUDED.chain
                         RETURNING id
                     """, (
                         address_data['address'],
-                        address_data['name']
+                        address_data['name'],
+                        address_data['chain']
                     ))
                     address_id = cur.fetchone()[0]
                     logging.debug(f"Адрес сохранен в таблицу, id: {address_id}")
