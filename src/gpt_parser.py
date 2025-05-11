@@ -14,6 +14,15 @@ load_dotenv()
 blockchain = os.getenv('BLOCKCHAIN', 'ethereum')
 url = f"https://www.oklink.com/{blockchain}/tx-list"
 
+def is_valid_address(address: str, chain: str) -> bool:
+    """Проверка валидности адреса в зависимости от блокчейна"""
+    if chain.lower() == 'tron':
+        # Tron адреса в сокращенном виде: начинаются с T и содержат ...
+        return address.startswith('T') and '...' in address
+    else:
+        # EVM адреса в сокращенном виде: начинаются с 0x и содержат ...
+        return address.startswith('0x') and '...' in address
+
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
@@ -82,8 +91,8 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                 text = await element.inner_text()
                                 text = text.strip()
                                 
-                                # Если текст начинается с 0x - пропускаем (это адрес)
-                                if text.startswith('0x'):
+                                # Проверяем, является ли текст адресом для текущего блокчейна
+                                if is_valid_address(text, blockchain):
                                     logger.debug(f"⏩ Пропускаем элемент только с адресом: {text}")
                                     continue
                                     
