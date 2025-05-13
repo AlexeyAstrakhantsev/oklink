@@ -119,7 +119,7 @@ class AddressRepository:
                         unified_type,
                         address_data['name'],
                         '{}',  # пустой JSON
-                        'oklink'
+                        'oklink-txs'
                     ))
                     
                     conn.commit()

@@ -100,7 +100,11 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                         
                         # Извлекаем имя из текста после "reported as"
                         if "reported as" in risk_text:
+                            # Получаем имя и убираем слово "address" в конце
                             name = risk_text.split("reported as")[1].strip()
+                            if name.endswith(" address"):
+                                name = name[:-8]  # убираем " address" в конце
+                            
                             # Получаем адрес из того же блока
                             address_element = await page.query_selector(f".index_wrapper__ns7tB:nth-child({i+1}) .index_address__7NLO9")
                             if address_element:
@@ -108,13 +112,25 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                 if not address:
                                     address = await address_element.inner_text()
                                 logger.info(f"📝 Найден адрес для риска: {address}")
-                                # Добавляем в parsed_results
-                                parsed_results.append({
-                                    "type": name,  # Используем имя как тип
-                                    "name": name,  # И как имя
-                                    "address": address
-                                })
-                                logger.info(f"✅ Добавлен риск: {name} для адреса {address}")
+                                
+                                # Сохраняем тег в базу данных
+                                try:
+                                    # Сначала сохраняем тег
+                                    tag_data = {
+                                        'tag_oklink': name
+                                    }
+                                    address_repo.save_tag(tag_data)
+                                    logger.info(f"✅ Сохранен тег: {name}")
+                                    
+                                    # Добавляем в parsed_results
+                                    parsed_results.append({
+                                        "type": name,  # Используем имя как тип
+                                        "name": name,  # И как имя
+                                        "address": address
+                                    })
+                                    logger.info(f"✅ Добавлен риск: {name} для адреса {address}")
+                                except Exception as e:
+                                    logger.error(f"❌ Ошибка при сохранении тега {name}: {e}")
                         
                         tooltips.add(risk_text)
                     except Exception as e:
