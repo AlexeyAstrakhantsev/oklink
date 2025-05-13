@@ -108,9 +108,22 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                             # Получаем адрес из того же блока
                             address_element = await page.query_selector(f".index_wrapper__ns7tB:nth-child({i+1}) .index_address__7NLO9")
                             if address_element:
+                                logger.info(f"🔍 Найден элемент адреса #{i+1}")
+                                # Проверяем все атрибуты элемента
+                                attributes = await address_element.evaluate('el => Object.fromEntries(Object.entries(el.attributes).map(([_, attr]) => [attr.name, attr.value]))')
+                                logger.info(f"📋 Атрибуты элемента: {attributes}")
+                                
+                                # Всегда берем полный адрес из data-original
                                 address = await address_element.get_attribute("data-original")
+                                logger.info(f"🔑 Значение data-original: {address}")
+                                
                                 if not address:
-                                    address = await address_element.inner_text()
+                                    logger.error(f"❌ Не найден полный адрес в data-original для элемента {i+1}")
+                                    # Проверяем inner_text как запасной вариант
+                                    inner_text = await address_element.inner_text()
+                                    logger.info(f"📝 Inner text элемента: {inner_text}")
+                                    continue
+                                    
                                 logger.info(f"📝 Найден адрес для риска: {address}")
                                 
                                 # Добавляем в parsed_results
