@@ -105,13 +105,22 @@ class AddressRepository:
         """Получает унифицированный тип из таблицы tags"""
         with self.db.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT tag_unified 
-                    FROM tags 
-                    WHERE tag_oklink = %s
-                """, (oklink_tag,))
-                result = cur.fetchone()
-                return result[0] if result and result[0] else None
+                try:
+                    logging.info(f"Ищем unified_type для тега: {oklink_tag}")
+                    cur.execute("""
+                        SELECT tag_unified 
+                        FROM tags 
+                        WHERE tag_oklink = %s
+                    """, (oklink_tag,))
+                    result = cur.fetchone()
+                    if result:
+                        logging.info(f"Найден unified_type: {result[0]} для тега {oklink_tag}")
+                    else:
+                        logging.info(f"Не найден unified_type для тега {oklink_tag}")
+                    return result[0] if result and result[0] else None
+                except Exception as e:
+                    logging.error(f"Ошибка при получении unified_type для тега {oklink_tag}: {str(e)}")
+                    return None
 
     def save_unified_address(self, address_data):
         """
@@ -134,6 +143,17 @@ class AddressRepository:
                     if not unified_type:
                         logging.info(f"Пропуск сохранения адреса {address_data['address']} в unified_addresses - нет tag_unified")
                         return
+                    
+                    # Проверяем, существует ли уже запись
+                    cur.execute("""
+                        SELECT id FROM unified_addresses WHERE address = %s
+                    """, (address_data['address'],))
+                    existing = cur.fetchone()
+                    
+                    if existing:
+                        logging.info(f"Обновляем существующую запись для адреса {address_data['address']}")
+                    else:
+                        logging.info(f"Создаем новую запись для адреса {address_data['address']}")
                     
                     # Сохраняем в unified_addresses только если есть unified_type
                     cur.execute("""
