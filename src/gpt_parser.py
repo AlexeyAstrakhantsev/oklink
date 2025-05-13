@@ -93,7 +93,10 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                     # Если не нашли внутри элемента, ищем в родительском блоке
                                     parent = await element.evaluate('el => el.closest(".index_wrapper__ns7tB")')
                                     if parent:
-                                        risk_icon = await parent.query_selector(".index_riskIcon__u0+KY")
+                                        # Создаем новый элемент из родительского
+                                        parent_element = await page.query_selector(f".index_wrapper__ns7tB:nth-child({i+1})")
+                                        if parent_element:
+                                            risk_icon = await parent_element.query_selector(".index_riskIcon__u0+KY")
                                 
                                 if risk_icon:
                                     logger.info("⚠️ Найдена иконка риска")
@@ -114,6 +117,15 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                 else:
                                     logger.debug("ℹ️ Иконка риска не найдена")
                                 
+                                # Если иконки риска нет, проверяем содержимое элемента
+                                text = await element.inner_text()
+                                text = text.strip()
+                                
+                                # Проверяем, является ли текст адресом для текущего блокчейна
+                                if is_valid_address(text, blockchain):
+                                    logger.debug(f"⏩ Пропускаем элемент только с адресом: {text}")
+                                    continue
+
                                 # Если есть дополнительный текст (имя) - делаем наведение
                                 logger.info(f"🔄 Наведение на элемент с именем: {text}")
                                 await element.hover()
