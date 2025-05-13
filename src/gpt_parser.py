@@ -72,6 +72,32 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 # Дополнительная пауза для полной загрузки
                 await page.wait_for_timeout(1000)  # 1 секунда вместо 2
 
+                # Поиск всех иконок риска на странице
+                risk_icons = await page.query_selector_all(".index_riskIcon__u0+KY")
+                logger.info(f"🔍 Найдено иконок риска на странице: {len(risk_icons)}")
+                
+                # Проверяем каждую иконку
+                for i, risk_icon in enumerate(risk_icons):
+                    try:
+                        # Получаем родительский элемент
+                        parent = await risk_icon.evaluate('el => el.closest(".index_wrapper__ns7tB")')
+                        if parent:
+                            logger.info(f"ℹ️ Иконка риска #{i+1} найдена в блоке")
+                            # Наводим на иконку
+                            await risk_icon.hover()
+                            await page.wait_for_timeout(300)
+                            
+                            # Ждем появления тултипа
+                            try:
+                                risk_tooltip = await page.wait_for_selector(".okui-popup-layer-content.index_conWrapper__PSJYS", timeout=1000)
+                                if risk_tooltip:
+                                    risk_text = await risk_tooltip.inner_text()
+                                    logger.info(f"🔴 Тултип риска #{i+1}: {risk_text}")
+                            except Exception as e:
+                                logger.error(f"❌ Ошибка при получении тултипа для иконки #{i+1}: {e}")
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка при обработке иконки риска #{i+1}: {e}")
+
                 tooltips = set()  # Множество для уникальных tooltips
                 for attempt in range(1, attempts + 1):
                     logger.info(f"🔁 Попытка {attempt} из {attempts}")
