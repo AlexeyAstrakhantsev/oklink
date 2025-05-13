@@ -87,11 +87,11 @@ class AddressRepository:
                     WHERE tag_oklink = %s
                 """, (oklink_tag,))
                 result = cur.fetchone()
-                return result[0] if result and result[0] else 'other'
+                return result[0] if result and result[0] else None
 
     def save_unified_address(self, address_data):
         """
-        Сохраняет адрес в таблицу unified_addresses
+        Сохраняет адрес в таблицу unified_addresses только если есть tag_unified
         
         address_data: dict с полями:
             - address: str (адрес)
@@ -104,7 +104,12 @@ class AddressRepository:
                     # Получаем унифицированный тип
                     unified_type = self.get_unified_type(address_data['tag'])
                     
-                    # Сохраняем в unified_addresses
+                    # Если unified_type не найден, пропускаем сохранение
+                    if not unified_type:
+                        logging.debug(f"Пропуск сохранения адреса {address_data['address']} в unified_addresses - нет tag_unified")
+                        return
+                    
+                    # Сохраняем в unified_addresses только если есть unified_type
                     cur.execute("""
                         INSERT INTO unified_addresses (address, type, address_name, labels, source)
                         VALUES (%s, %s, %s, %s, %s)
