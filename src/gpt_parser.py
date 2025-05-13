@@ -70,7 +70,7 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 logger.info("✅ Страница загружена успешно")
                 
                 # Дополнительная пауза для полной загрузки
-                await page.wait_for_timeout(3000)  # 3 секунды для полной загрузки
+                await page.wait_for_timeout(1000)  # 1 секунда для полной загрузки
 
                 # Поиск всех иконок риска на странице
                 risk_icons = await page.query_selector_all(".oklink-explore-danger")
@@ -84,13 +84,14 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                         parent = await risk_icon.evaluate('el => el.closest(".index_wrapper__ns7tB")')
                         if parent:
                             # Получаем адрес из родительского блока
-                            address_element = await page.evaluate('el => el.querySelector(".index_address__ns7tB")', parent)
+                            address_element = await page.query_selector(f".index_wrapper__ns7tB:nth-child({i+1}) .index_address__ns7tB")
                             if address_element:
-                                logger.info(f"📝 Найден адрес в блоке с риском: {address_element}")
+                                address = await address_element.inner_text()
+                                logger.info(f"📝 Найден адрес в блоке с риском: {address}")
                                 # Сохраняем адрес для последующего использования
                                 risk_icons[i] = {
                                     'icon': risk_icon,
-                                    'address': address_element
+                                    'address': address
                                 }
                         await risk_icon.hover()
                         await page.wait_for_timeout(300)
