@@ -162,11 +162,11 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                 }
                                 parsed_results.append(result)
                     else:
-                        # Для EVM формат: "Type: Name 0x..."
-                        match = re.match(r"(?P<type>\w+):\s+(?P<name>.+?)\s+(?P<address>0x[a-fA-F0-9]{40})", tooltip)
+                        # Для EVM формат: "Type: Name 0x..." или просто "Name 0x..."
+                        match = re.match(r"(?:(?P<type>\w+):\s+)?(?P<name>.+?)\s+(?P<address>0x[a-fA-F0-9]{40})", tooltip)
                         if match:
                             result = {
-                                "type": match.group("type"),
+                                "type": match.group("type") or "other",  # если тип не найден, используем "other"
                                 "name": match.group("name"),
                                 "address": match.group("address")
                             }
