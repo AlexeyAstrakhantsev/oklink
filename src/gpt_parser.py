@@ -89,29 +89,31 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                 
                                 # Сначала проверяем наличие иконки риска
                                 risk_icon = await element.query_selector(".index_riskIcon__u0+KY")
+                                if not risk_icon:
+                                    # Если не нашли внутри элемента, ищем в родительском блоке
+                                    parent = await element.evaluate('el => el.closest(".index_wrapper__ns7tB")')
+                                    if parent:
+                                        risk_icon = await parent.query_selector(".index_riskIcon__u0+KY")
+                                
                                 if risk_icon:
                                     logger.info("⚠️ Найдена иконка риска")
                                     await risk_icon.hover()
                                     await page.wait_for_timeout(300)
                                     
                                     # Ждем появления тултипа риска
-                                    risk_tooltip = await page.wait_for_selector(".okui-popup-layer-content.index_conWrapper__PSJYS", timeout=1000)
-                                    if risk_tooltip:
-                                        risk_text = await risk_tooltip.inner_text()
-                                        logger.info(f"🔴 Тултип риска: {risk_text}")
-                                        # Используем текст риска как имя без префикса
-                                        tooltips.add(risk_text)
-                                        continue
+                                    try:
+                                        risk_tooltip = await page.wait_for_selector(".okui-popup-layer-content.index_conWrapper__PSJYS", timeout=1000)
+                                        if risk_tooltip:
+                                            risk_text = await risk_tooltip.inner_text()
+                                            logger.info(f"🔴 Тултип риска: {risk_text}")
+                                            # Используем текст риска как имя
+                                            tooltips.add(risk_text)
+                                            continue
+                                    except Exception as e:
+                                        logger.error(f"❌ Ошибка при получении тултипа риска: {e}")
+                                else:
+                                    logger.debug("ℹ️ Иконка риска не найдена")
                                 
-                                # Если иконки риска нет, проверяем содержимое элемента
-                                text = await element.inner_text()
-                                text = text.strip()
-                                
-                                # Проверяем, является ли текст адресом для текущего блокчейна
-                                if is_valid_address(text, blockchain):
-                                    logger.debug(f"⏩ Пропускаем элемент только с адресом: {text}")
-                                    continue
-                                    
                                 # Если есть дополнительный текст (имя) - делаем наведение
                                 logger.info(f"🔄 Наведение на элемент с именем: {text}")
                                 await element.hover()
@@ -189,9 +191,9 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 for item in parsed_results:
                     logger.info(f"🔹 Type: {item['type']}, Name: {item['name']}, Address: {item['address']}")
 
-                # Пауза между итерациями (10 секунд)
-                logger.info("💤 Пауза 10 секунд перед следующей итерацией...")
-                await asyncio.sleep(2)
+                # Пауза между итерациями (1 секунда)
+                logger.info("💤 Пауза 1 секунда перед следующей итерацией...")
+                await asyncio.sleep(1)
 
             except Exception as e:
                 logger.error(f"❌ Критическая ошибка в основном цикле: {e}")
