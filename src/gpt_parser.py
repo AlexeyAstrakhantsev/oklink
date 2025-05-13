@@ -109,15 +109,20 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                         logger.info(f"🔴 Тултип риска #{i+1}: {risk_text}")
                         
                         # Извлекаем имя из текста после "reported as"
-                        if "reported as" in risk_text and i < len(risk_icons) and isinstance(risk_icons[i], dict):
+                        if "reported as" in risk_text:
                             name = risk_text.split("reported as")[1].strip()
-                            # Добавляем в parsed_results с адресом
-                            parsed_results.append({
-                                "type": name,  # Используем имя как тип
-                                "name": name,  # И как имя
-                                "address": risk_icons[i]['address']  # Используем сохраненный адрес
-                            })
-                            logger.info(f"✅ Добавлен риск: {name} для адреса {risk_icons[i]['address']}")
+                            # Получаем адрес из того же блока
+                            address_element = await page.query_selector(f".index_wrapper__ns7tB:nth-child({i+1}) .index_address__ns7tB")
+                            if address_element:
+                                address = await address_element.inner_text()
+                                logger.info(f"📝 Найден адрес для риска: {address}")
+                                # Добавляем в parsed_results
+                                parsed_results.append({
+                                    "type": name,  # Используем имя как тип
+                                    "name": name,  # И как имя
+                                    "address": address
+                                })
+                                logger.info(f"✅ Добавлен риск: {name} для адреса {address}")
                         
                         tooltips.add(risk_text)
                     except Exception as e:
