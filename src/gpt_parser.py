@@ -112,9 +112,11 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                         if "reported as" in risk_text:
                             name = risk_text.split("reported as")[1].strip()
                             # Получаем адрес из того же блока
-                            address_element = await page.query_selector(f".index_wrapper__ns7tB:nth-child({i+1}) .index_address__ns7tB")
+                            address_element = await page.query_selector(f".index_wrapper__ns7tB:nth-child({i+1}) .index_address__7NLO9")
                             if address_element:
-                                address = await address_element.inner_text()
+                                address = await address_element.get_attribute("data-original")
+                                if not address:
+                                    address = await address_element.inner_text()
                                 logger.info(f"📝 Найден адрес для риска: {address}")
                                 # Добавляем в parsed_results
                                 parsed_results.append({
