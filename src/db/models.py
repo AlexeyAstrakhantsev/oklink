@@ -56,12 +56,79 @@ class Database:
                     )
                 """)
                 
+                # Создаем таблицу унифицированных адресов
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS unified_addresses (
+                        address VARCHAR(50) NOT NULL,
+                        type VARCHAR(20) NOT NULL,
+                        address_name VARCHAR(50),
+                        labels JSON,
+                        source VARCHAR(50),
+                        created_at TIMESTAMP DEFAULT timezone('utc'::text, now()) NOT NULL,
+                        id SERIAL PRIMARY KEY,
+                        CONSTRAINT unified_addresses_unique_address UNIQUE (address)
+                    )
+                """)
+                
                 conn.commit()
                 logging.info("Таблицы инициализированы успешно")
 
 class AddressRepository:
     def __init__(self, db):
         self.db = db
+
+    def get_unified_type(self, oklink_tag):
+        """Получает унифицированный тип из таблицы tags"""
+        with self.db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT tag_unified 
+                    FROM tags 
+                    WHERE tag_oklink = %s
+                """, (oklink_tag,))
+                result = cur.fetchone()
+                return result[0] if result and result[0] else 'other'
+
+    def save_unified_address(self, address_data):
+        """
+        Сохраняет адрес в таблицу unified_addresses
+        
+        address_data: dict с полями:
+            - address: str (адрес)
+            - name: str (имя)
+            - tag: str (тег из OKLink)
+        """
+        with self.db.get_connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    # Получаем унифицированный тип
+                    unified_type = self.get_unified_type(address_data['tag'])
+                    
+                    # Сохраняем в unified_addresses
+                    cur.execute("""
+                        INSERT INTO unified_addresses (address, type, address_name, labels, source)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (address) 
+                        DO UPDATE SET 
+                            type = EXCLUDED.type,
+                            address_name = EXCLUDED.address_name,
+                            labels = EXCLUDED.labels,
+                            source = EXCLUDED.source
+                    """, (
+                        address_data['address'],
+                        unified_type,
+                        address_data['name'],
+                        '{}',  # пустой JSON
+                        'oklink'
+                    ))
+                    
+                    conn.commit()
+                    logging.debug(f"Успешно сохранен адрес {address_data['address']} в unified_addresses")
+                    
+                except Exception as e:
+                    conn.rollback()
+                    logging.error(f"Ошибка при сохранении адреса {address_data['address']} в unified_addresses: {str(e)}")
+                    raise
 
     def save_address(self, address_data):
         """
@@ -80,17 +147,15 @@ class AddressRepository:
                     
                     # Сохраняем адрес
                     cur.execute("""
-                        INSERT INTO addresses (address, name, chain)
-                        VALUES (%s, %s, %s)
+                        INSERT INTO addresses (address, name)
+                        VALUES (%s, %s)
                         ON CONFLICT (address) 
                         DO UPDATE SET 
-                            name = EXCLUDED.name,
-                            chain = EXCLUDED.chain
+                            name = EXCLUDED.name
                         RETURNING id
                     """, (
                         address_data['address'],
-                        address_data['name'],
-                        address_data['chain']
+                        address_data['name']
                     ))
                     address_id = cur.fetchone()[0]
                     logging.debug(f"Адрес сохранен в таблицу, id: {address_id}")
@@ -123,6 +188,9 @@ class AddressRepository:
                     
                     conn.commit()
                     logging.debug(f"Успешно сохранен адрес {address_data['address']} с тегом {address_data.get('tag')}")
+                    
+                    # Сохраняем в unified_addresses
+                    self.save_unified_address(address_data)
                     
                 except Exception as e:
                     conn.rollback()

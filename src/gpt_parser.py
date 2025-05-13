@@ -76,18 +76,34 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 for attempt in range(1, attempts + 1):
                     logger.info(f"🔁 Попытка {attempt} из {attempts}")
                     try:
-                        address_elements = await page.query_selector_all(".index_innerClassName__6ivtc")
+                        address_elements = await page.query_selector_all(".index_wrapper__ns7tB")
                         logger.info(f"🔍 Найдено {len(address_elements)} адресов")
 
                         for i in range(len(address_elements)):
                             try:
-                                fresh_elements = await page.query_selector_all(".index_innerClassName__6ivtc")
+                                fresh_elements = await page.query_selector_all(".index_wrapper__ns7tB")
                                 if i >= len(fresh_elements):
                                     continue
 
                                 element = fresh_elements[i]
                                 
-                                # Проверяем содержимое элемента
+                                # Сначала проверяем наличие иконки риска
+                                risk_icon = await element.query_selector(".index_riskIcon__u0+KY")
+                                if risk_icon:
+                                    logger.info("⚠️ Найдена иконка риска")
+                                    await risk_icon.hover()
+                                    await page.wait_for_timeout(300)
+                                    
+                                    # Ждем появления тултипа риска
+                                    risk_tooltip = await page.wait_for_selector(".okui-popup-layer-content.index_conWrapper__PSJYS", timeout=1000)
+                                    if risk_tooltip:
+                                        risk_text = await risk_tooltip.inner_text()
+                                        logger.info(f"🔴 Тултип риска: {risk_text}")
+                                        # Используем текст риска как имя без префикса
+                                        tooltips.add(risk_text)
+                                        continue
+                                
+                                # Если иконки риска нет, проверяем содержимое элемента
                                 text = await element.inner_text()
                                 text = text.strip()
                                 
@@ -99,8 +115,9 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                 # Если есть дополнительный текст (имя) - делаем наведение
                                 logger.info(f"🔄 Наведение на элемент с именем: {text}")
                                 await element.hover()
-                                await page.wait_for_timeout(300)  # Возвращаем прежние 300 мс вместо 500
+                                await page.wait_for_timeout(300)
 
+                                # Получаем основной тултип
                                 tooltip_el = await page.query_selector(".index_title__9lx6D")
                                 if tooltip_el:
                                     text = await tooltip_el.inner_text()
