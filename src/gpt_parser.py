@@ -70,7 +70,7 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 logger.info("✅ Страница загружена успешно")
                 
                 # Дополнительная пауза для полной загрузки
-                await page.wait_for_timeout(1000)  # 1 секунда вместо 2
+                await page.wait_for_timeout(3000)  # 1 секунда вместо 2
 
                 # Поиск всех иконок риска на странице
                 risk_icons = await page.query_selector_all(".index_riskIcon__u0+KY")
