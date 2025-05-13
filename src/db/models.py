@@ -105,81 +105,13 @@ class AddressRepository:
         """Получает унифицированный тип из таблицы tags"""
         with self.db.get_connection() as conn:
             with conn.cursor() as cur:
-                try:
-                    logging.info(f"Ищем unified_type для тега: {oklink_tag}")
-                    cur.execute("""
-                        SELECT tag_unified 
-                        FROM tags 
-                        WHERE tag_oklink = %s
-                    """, (oklink_tag,))
-                    result = cur.fetchone()
-                    if result:
-                        logging.info(f"Найден unified_type: {result[0]} для тега {oklink_tag}")
-                    else:
-                        logging.info(f"Не найден unified_type для тега {oklink_tag}")
-                    return result[0] if result and result[0] else None
-                except Exception as e:
-                    logging.error(f"Ошибка при получении unified_type для тега {oklink_tag}: {str(e)}")
-                    return None
-
-    def save_unified_address(self, address_data):
-        """
-        Сохраняет адрес в таблицу unified_addresses только если есть tag_unified
-        
-        address_data: dict с полями:
-            - address: str (адрес)
-            - name: str (имя)
-            - tag: str (тег из OKLink)
-        """
-        with self.db.get_connection() as conn:
-            with conn.cursor() as cur:
-                try:
-                    logging.info(f"Проверяем unified_type для тега: {address_data['tag']}")
-                    # Получаем унифицированный тип
-                    unified_type = self.get_unified_type(address_data['tag'])
-                    logging.info(f"Получен unified_type: {unified_type}")
-                    
-                    # Если unified_type не найден, пропускаем сохранение
-                    if not unified_type:
-                        logging.info(f"Пропуск сохранения адреса {address_data['address']} в unified_addresses - нет tag_unified")
-                        return
-                    
-                    # Проверяем, существует ли уже запись
-                    cur.execute("""
-                        SELECT id FROM unified_addresses WHERE address = %s
-                    """, (address_data['address'],))
-                    existing = cur.fetchone()
-                    
-                    if existing:
-                        logging.info(f"Обновляем существующую запись для адреса {address_data['address']}")
-                    else:
-                        logging.info(f"Создаем новую запись для адреса {address_data['address']}")
-                    
-                    # Сохраняем в unified_addresses только если есть unified_type
-                    cur.execute("""
-                        INSERT INTO unified_addresses (address, type, address_name, labels, source)
-                        VALUES (%s, %s, %s, %s, %s)
-                        ON CONFLICT (address) 
-                        DO UPDATE SET 
-                            type = EXCLUDED.type,
-                            address_name = EXCLUDED.address_name,
-                            labels = EXCLUDED.labels,
-                            source = EXCLUDED.source
-                    """, (
-                        address_data['address'],
-                        unified_type,
-                        address_data['name'],
-                        '{}',  # пустой JSON
-                        'oklink-txs'
-                    ))
-                    
-                    conn.commit()
-                    logging.info(f"Успешно сохранен адрес {address_data['address']} в unified_addresses")
-                    
-                except Exception as e:
-                    conn.rollback()
-                    logging.error(f"Ошибка при сохранении адреса {address_data['address']} в unified_addresses: {str(e)}")
-                    raise
+                cur.execute("""
+                    SELECT tag_unified 
+                    FROM tags 
+                    WHERE tag_oklink = %s
+                """, (oklink_tag,))
+                result = cur.fetchone()
+                return result[0] if result and result[0] else None
 
     def save_address(self, address_data):
         """
@@ -189,6 +121,7 @@ class AddressRepository:
             - address: str (адрес)
             - name: str (имя)
             - tag: str (тег из OKLink)
+            - chain: str (блокчейн)
         """
         with self.db.get_connection() as conn:
             with conn.cursor() as cur:
@@ -247,8 +180,34 @@ class AddressRepository:
                     conn.commit()
                     logging.info(f"Успешно сохранен адрес {address_data['address']} с тегом {address_data.get('tag')}")
                     
-                    # Сохраняем в unified_addresses
-                    self.save_unified_address(address_data)
+                    # Проверяем unified_type и сохраняем в unified_addresses если есть
+                    if 'tag' in address_data:
+                        logging.info(f"Проверяем unified_type для тега: {address_data['tag']}")
+                        unified_type = self.get_unified_type(address_data['tag'])
+                        logging.info(f"Получен unified_type: {unified_type}")
+                        
+                        if unified_type:
+                            # Сохраняем в unified_addresses
+                            cur.execute("""
+                                INSERT INTO unified_addresses (address, type, address_name, labels, source)
+                                VALUES (%s, %s, %s, %s, %s)
+                                ON CONFLICT (address) 
+                                DO UPDATE SET 
+                                    type = EXCLUDED.type,
+                                    address_name = EXCLUDED.address_name,
+                                    labels = EXCLUDED.labels,
+                                    source = EXCLUDED.source
+                            """, (
+                                address_data['address'],
+                                unified_type,
+                                address_data['name'],
+                                '{}',  # пустой JSON
+                                'oklink-txs'
+                            ))
+                            conn.commit()
+                            logging.info(f"Успешно сохранен адрес {address_data['address']} в unified_addresses")
+                        else:
+                            logging.info(f"Пропуск сохранения в unified_addresses - нет tag_unified для тега {address_data['tag']}")
                     
                 except Exception as e:
                     conn.rollback()
