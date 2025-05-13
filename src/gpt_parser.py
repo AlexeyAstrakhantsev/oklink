@@ -113,27 +113,13 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                     address = await address_element.inner_text()
                                 logger.info(f"📝 Найден адрес для риска: {address}")
                                 
-                                # Сохраняем тег в базу данных
-                                try:
-                                    # Сохраняем адрес с тегом
-                                    address_data = {
-                                        'address': address,
-                                        'name': name,
-                                        'tag': name,  # используем имя как тег
-                                        'chain': blockchain
-                                    }
-                                    address_repo.save_address(address_data)
-                                    logger.info(f"✅ Сохранен адрес: {address} с тегом: {name}")
-                                    
-                                    # Добавляем в parsed_results
-                                    parsed_results.append({
-                                        "type": name,  # Используем имя как тип
-                                        "name": name,  # И как имя
-                                        "address": address
-                                    })
-                                    logger.info(f"✅ Добавлен риск: {name} для адреса {address}")
-                                except Exception as e:
-                                    logger.error(f"❌ Ошибка при сохранении адреса {address}: {e}")
+                                # Добавляем в parsed_results
+                                parsed_results.append({
+                                    "type": name,  # Используем имя как тип
+                                    "name": name,  # И как имя
+                                    "address": address
+                                })
+                                logger.info(f"✅ Добавлен риск: {name} для адреса {address}")
                         
                         tooltips.add(risk_text)
                     except Exception as e:
@@ -251,23 +237,22 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                 "address": match.group("address")
                             }
                             parsed_results.append(result)
-                        
-                        # Сохраняем в базу данных
-                        try:
-                            address_data = {
-                                'address': result['address'],
-                                'name': result['name'],
-                                'tag': result['type'],
-                                'chain': blockchain
-                            }
-                            address_repo.save_address(address_data)
-                            logger.info(f"✅ Сохранен адрес: {result['address']} с именем: {result['name']} и тегом: {result['type']}")
-                        except Exception as e:
-                            logger.error(f"❌ Ошибка при сохранении адреса {result['address']}: {e}")
 
                 logger.info(f"\n🔎 Распознано адресов с именами: {len(parsed_results)}")
                 for item in parsed_results:
                     logger.info(f"🔹 Type: {item['type']}, Name: {item['name']}, Address: {item['address']}")
+                    # Сохраняем в базу данных
+                    try:
+                        address_data = {
+                            'address': item['address'],
+                            'name': item['name'],
+                            'tag': item['type'],
+                            'chain': blockchain
+                        }
+                        address_repo.save_address(address_data)
+                        logger.info(f"✅ Сохранен адрес: {item['address']} с именем: {item['name']} и тегом: {item['type']}")
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка при сохранении адреса {item['address']}: {e}")
 
                 # Пауза между итерациями (1 секунда)
                 logger.info("💤 Пауза 1 секунда перед следующей итерацией...")
