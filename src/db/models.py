@@ -125,12 +125,14 @@ class AddressRepository:
         with self.db.get_connection() as conn:
             with conn.cursor() as cur:
                 try:
+                    logging.info(f"Проверяем unified_type для тега: {address_data['tag']}")
                     # Получаем унифицированный тип
                     unified_type = self.get_unified_type(address_data['tag'])
+                    logging.info(f"Получен unified_type: {unified_type}")
                     
                     # Если unified_type не найден, пропускаем сохранение
                     if not unified_type:
-                        logging.debug(f"Пропуск сохранения адреса {address_data['address']} в unified_addresses - нет tag_unified")
+                        logging.info(f"Пропуск сохранения адреса {address_data['address']} в unified_addresses - нет tag_unified")
                         return
                     
                     # Сохраняем в unified_addresses только если есть unified_type
@@ -152,7 +154,7 @@ class AddressRepository:
                     ))
                     
                     conn.commit()
-                    logging.debug(f"Успешно сохранен адрес {address_data['address']} в unified_addresses")
+                    logging.info(f"Успешно сохранен адрес {address_data['address']} в unified_addresses")
                     
                 except Exception as e:
                     conn.rollback()
@@ -172,25 +174,29 @@ class AddressRepository:
             with conn.cursor() as cur:
                 try:
                     # Логирование перед сохранением
-                    logging.debug(f"Сохранение адреса: {address_data['address']}")
+                    logging.info(f"Начинаем сохранение адреса: {address_data['address']}")
+                    logging.info(f"Данные для сохранения: {address_data}")
                     
                     # Сохраняем адрес
                     cur.execute("""
-                        INSERT INTO addresses (address, name)
-                        VALUES (%s, %s)
+                        INSERT INTO addresses (address, name, chain)
+                        VALUES (%s, %s, %s)
                         ON CONFLICT (address) 
                         DO UPDATE SET 
-                            name = EXCLUDED.name
+                            name = EXCLUDED.name,
+                            chain = EXCLUDED.chain
                         RETURNING id
                     """, (
                         address_data['address'],
-                        address_data['name']
+                        address_data['name'],
+                        address_data.get('chain', 'ethereum')
                     ))
                     address_id = cur.fetchone()[0]
-                    logging.debug(f"Адрес сохранен в таблицу, id: {address_id}")
+                    logging.info(f"Адрес сохранен в таблицу addresses, id: {address_id}")
                     
                     # Сохраняем тег, если он есть
                     if 'tag' in address_data:
+                        logging.info(f"Сохраняем тег: {address_data['tag']}")
                         cur.execute("""
                             INSERT INTO tags (tag_oklink)
                             VALUES (%s)
@@ -201,12 +207,14 @@ class AddressRepository:
                         
                         if result:
                             tag_id = result[0]
+                            logging.info(f"Создан новый тег с id: {tag_id}")
                         else:
                             # Если тег уже существует, получаем его id
                             cur.execute("""
                                 SELECT id FROM tags WHERE tag_oklink = %s
                             """, (address_data['tag'],))
                             tag_id = cur.fetchone()[0]
+                            logging.info(f"Найден существующий тег с id: {tag_id}")
                         
                         # Связываем адрес с тегом
                         cur.execute("""
@@ -214,9 +222,10 @@ class AddressRepository:
                             VALUES (%s, %s)
                             ON CONFLICT (address_id, tag_id) DO NOTHING
                         """, (address_id, tag_id))
+                        logging.info(f"Адрес {address_id} связан с тегом {tag_id}")
                     
                     conn.commit()
-                    logging.debug(f"Успешно сохранен адрес {address_data['address']} с тегом {address_data.get('tag')}")
+                    logging.info(f"Успешно сохранен адрес {address_data['address']} с тегом {address_data.get('tag')}")
                     
                     # Сохраняем в unified_addresses
                     self.save_unified_address(address_data)
