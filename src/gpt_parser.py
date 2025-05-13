@@ -99,7 +99,7 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                     logger.error(f"❌ Ошибка при анализе HTML: {e}")
 
                 # Поиск всех иконок риска на странице
-                risk_icons = await page.query_selector_all(".index_riskIcon__u0+KY")
+                risk_icons = await page.query_selector_all(".oklink-explore-danger")
                 logger.info(f"🔍 Найдено иконок риска на странице: {len(risk_icons)}")
                 
                 # Проверяем каждую иконку
@@ -119,6 +119,8 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                 if risk_tooltip:
                                     risk_text = await risk_tooltip.inner_text()
                                     logger.info(f"🔴 Тултип риска #{i+1}: {risk_text}")
+                                    # Добавляем в tooltips
+                                    tooltips.add(risk_text)
                             except Exception as e:
                                 logger.error(f"❌ Ошибка при получении тултипа для иконки #{i+1}: {e}")
                     except Exception as e:
