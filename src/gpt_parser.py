@@ -72,6 +72,10 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 # Дополнительная пауза для полной загрузки
                 await page.wait_for_timeout(1000)  # 1 секунда для полной загрузки
 
+                # Инициализируем список результатов
+                parsed_results = []
+                tooltips = set()  # Множество для уникальных tooltips
+
                 # Поиск всех иконок риска на странице
                 risk_icons = await page.query_selector_all(".oklink-explore-danger")
                 logger.info(f"🔍 Найдено иконок риска на странице: {len(risk_icons)}")
@@ -80,26 +84,12 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 for i, risk_icon in enumerate(risk_icons):
                     try:
                         logger.info(f"ℹ️ Наведение на иконку риска #{i+1}")
-                        # Получаем родительский блок
-                        parent = await risk_icon.evaluate('el => el.closest(".index_wrapper__ns7tB")')
-                        if parent:
-                            # Получаем адрес из родительского блока
-                            address_element = await page.query_selector(f".index_wrapper__ns7tB:nth-child({i+1}) .index_address__ns7tB")
-                            if address_element:
-                                address = await address_element.inner_text()
-                                logger.info(f"📝 Найден адрес в блоке с риском: {address}")
-                                # Сохраняем адрес для последующего использования
-                                risk_icons[i] = {
-                                    'icon': risk_icon,
-                                    'address': address
-                                }
                         await risk_icon.hover()
                         await page.wait_for_timeout(300)
                     except Exception as e:
                         logger.error(f"❌ Ошибка при наведении на иконку #{i+1}: {e}")
 
                 # Теперь собираем все тултипы
-                tooltips = set()  # Множество для уникальных tooltips
                 risk_tooltips = await page.query_selector_all(".okui-popup-layer-content.index_conWrapper__PSJYS")
                 logger.info(f"🔍 Найдено тултипов риска: {len(risk_tooltips)}")
                 
@@ -219,7 +209,6 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                             await page.goto(url, wait_until='networkidle', timeout=30000)
 
                 # Обработка и сохранение tooltip'ов
-                parsed_results = []
                 for tooltip in tooltips:
                     # Для Tron формат: "Type: Name\nAddress"
                     if blockchain.lower() == 'tron':
