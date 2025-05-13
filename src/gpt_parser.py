@@ -72,61 +72,33 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 # Дополнительная пауза для полной загрузки
                 await page.wait_for_timeout(3000)  # 3 секунды для полной загрузки
 
-                # Проверяем различные селекторы иконки риска
-                possible_selectors = [
-                    ".index_riskIcon__u0+KY",
-                    "[class*='riskIcon']",
-                    "[class*='risk']",
-                    ".index_riskIcon",
-                    ".risk-icon"
-                ]
-
-                logger.info("🔍 Проверяем различные селекторы иконки риска:")
-                for selector in possible_selectors:
-                    elements = await page.query_selector_all(selector)
-                    logger.info(f"Селектор '{selector}': найдено {len(elements)} элементов")
-
-                # Получаем HTML структуру для анализа
-                try:
-                    html_content = await page.content()
-                    logger.info("📄 Анализ HTML структуры:")
-                    # Ищем все элементы с классом, содержащим 'risk'
-                    risk_elements = await page.query_selector_all("[class*='risk']")
-                    for i, el in enumerate(risk_elements):
-                        class_name = await el.get_attribute("class")
-                        logger.info(f"Элемент #{i+1} с классом: {class_name}")
-                except Exception as e:
-                    logger.error(f"❌ Ошибка при анализе HTML: {e}")
-
                 # Поиск всех иконок риска на странице
                 risk_icons = await page.query_selector_all(".oklink-explore-danger")
                 logger.info(f"🔍 Найдено иконок риска на странице: {len(risk_icons)}")
                 
-                # Проверяем каждую иконку
+                # Сначала наводим на все иконки
                 for i, risk_icon in enumerate(risk_icons):
                     try:
-                        # Получаем родительский элемент
-                        parent = await risk_icon.evaluate('el => el.closest(".index_wrapper__ns7tB")')
-                        if parent:
-                            logger.info(f"ℹ️ Иконка риска #{i+1} найдена в блоке")
-                            # Наводим на иконку
-                            await risk_icon.hover()
-                            await page.wait_for_timeout(300)
-                            
-                            # Ждем появления тултипа
-                            try:
-                                risk_tooltip = await page.wait_for_selector(".okui-popup-layer-content.index_conWrapper__PSJYS", timeout=1000)
-                                if risk_tooltip:
-                                    risk_text = await risk_tooltip.inner_text()
-                                    logger.info(f"🔴 Тултип риска #{i+1}: {risk_text}")
-                                    # Добавляем в tooltips
-                                    tooltips.add(risk_text)
-                            except Exception as e:
-                                logger.error(f"❌ Ошибка при получении тултипа для иконки #{i+1}: {e}")
+                        logger.info(f"ℹ️ Наведение на иконку риска #{i+1}")
+                        await risk_icon.hover()
+                        await page.wait_for_timeout(300)
                     except Exception as e:
-                        logger.error(f"❌ Ошибка при обработке иконки риска #{i+1}: {e}")
+                        logger.error(f"❌ Ошибка при наведении на иконку #{i+1}: {e}")
 
+                # Теперь собираем все тултипы
                 tooltips = set()  # Множество для уникальных tooltips
+                risk_tooltips = await page.query_selector_all(".okui-popup-layer-content.index_conWrapper__PSJYS")
+                logger.info(f"🔍 Найдено тултипов риска: {len(risk_tooltips)}")
+                
+                for i, tooltip in enumerate(risk_tooltips):
+                    try:
+                        risk_text = await tooltip.inner_text()
+                        logger.info(f"🔴 Тултип риска #{i+1}: {risk_text}")
+                        tooltips.add(risk_text)
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка при получении текста тултипа #{i+1}: {e}")
+
+                # Продолжаем с основным циклом
                 for attempt in range(1, attempts + 1):
                     logger.info(f"🔁 Попытка {attempt} из {attempts}")
                     try:
