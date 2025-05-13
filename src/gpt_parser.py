@@ -80,6 +80,18 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 for i, risk_icon in enumerate(risk_icons):
                     try:
                         logger.info(f"ℹ️ Наведение на иконку риска #{i+1}")
+                        # Получаем родительский блок
+                        parent = await risk_icon.evaluate('el => el.closest(".index_wrapper__ns7tB")')
+                        if parent:
+                            # Получаем адрес из родительского блока
+                            address_element = await page.evaluate('el => el.querySelector(".index_address__ns7tB")', parent)
+                            if address_element:
+                                logger.info(f"📝 Найден адрес в блоке с риском: {address_element}")
+                                # Сохраняем адрес для последующего использования
+                                risk_icons[i] = {
+                                    'icon': risk_icon,
+                                    'address': address_element
+                                }
                         await risk_icon.hover()
                         await page.wait_for_timeout(300)
                     except Exception as e:
@@ -94,6 +106,18 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                     try:
                         risk_text = await tooltip.inner_text()
                         logger.info(f"🔴 Тултип риска #{i+1}: {risk_text}")
+                        
+                        # Извлекаем имя из текста после "reported as"
+                        if "reported as" in risk_text and i < len(risk_icons) and isinstance(risk_icons[i], dict):
+                            name = risk_text.split("reported as")[1].strip()
+                            # Добавляем в parsed_results с адресом
+                            parsed_results.append({
+                                "type": name,  # Используем имя как тип
+                                "name": name,  # И как имя
+                                "address": risk_icons[i]['address']  # Используем сохраненный адрес
+                            })
+                            logger.info(f"✅ Добавлен риск: {name} для адреса {risk_icons[i]['address']}")
+                        
                         tooltips.add(risk_text)
                     except Exception as e:
                         logger.error(f"❌ Ошибка при получении текста тултипа #{i+1}: {e}")
