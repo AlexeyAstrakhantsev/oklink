@@ -115,12 +115,15 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                 
                                 # Сохраняем тег в базу данных
                                 try:
-                                    # Сначала сохраняем тег
-                                    tag_data = {
-                                        'tag_oklink': name
+                                    # Сохраняем адрес с тегом
+                                    address_data = {
+                                        'address': address,
+                                        'name': name,
+                                        'tag': name,  # используем имя как тег
+                                        'chain': blockchain
                                     }
-                                    address_repo.save_tag(tag_data)
-                                    logger.info(f"✅ Сохранен тег: {name}")
+                                    address_repo.save_address(address_data)
+                                    logger.info(f"✅ Сохранен адрес: {address} с тегом: {name}")
                                     
                                     # Добавляем в parsed_results
                                     parsed_results.append({
@@ -130,7 +133,7 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                                     })
                                     logger.info(f"✅ Добавлен риск: {name} для адреса {address}")
                                 except Exception as e:
-                                    logger.error(f"❌ Ошибка при сохранении тега {name}: {e}")
+                                    logger.error(f"❌ Ошибка при сохранении адреса {address}: {e}")
                         
                         tooltips.add(risk_text)
                     except Exception as e:

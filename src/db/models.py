@@ -77,6 +77,30 @@ class AddressRepository:
     def __init__(self, db):
         self.db = db
 
+    def save_tag(self, tag_data):
+        """
+        Сохраняет тег в таблицу tags
+        
+        tag_data: dict с полями:
+            - tag_oklink: str (тег из OKLink)
+        """
+        with self.db.get_connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    cur.execute("""
+                        INSERT INTO tags (tag_oklink)
+                        VALUES (%s)
+                        ON CONFLICT (tag_oklink) DO NOTHING
+                    """, (tag_data['tag_oklink'],))
+                    
+                    conn.commit()
+                    logging.debug(f"Успешно сохранен тег: {tag_data['tag_oklink']}")
+                    
+                except Exception as e:
+                    conn.rollback()
+                    logging.error(f"Ошибка при сохранении тега {tag_data['tag_oklink']}: {str(e)}")
+                    raise
+
     def get_unified_type(self, oklink_tag):
         """Получает унифицированный тип из таблицы tags"""
         with self.db.get_connection() as conn:
