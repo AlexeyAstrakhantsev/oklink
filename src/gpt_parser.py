@@ -70,7 +70,33 @@ async def scrape_tooltips(url: str, attempts: int = 5):
                 logger.info("✅ Страница загружена успешно")
                 
                 # Дополнительная пауза для полной загрузки
-                await page.wait_for_timeout(3000)  # 1 секунда вместо 2
+                await page.wait_for_timeout(3000)  # 3 секунды для полной загрузки
+
+                # Проверяем различные селекторы иконки риска
+                possible_selectors = [
+                    ".index_riskIcon__u0+KY",
+                    "[class*='riskIcon']",
+                    "[class*='risk']",
+                    ".index_riskIcon",
+                    ".risk-icon"
+                ]
+
+                logger.info("🔍 Проверяем различные селекторы иконки риска:")
+                for selector in possible_selectors:
+                    elements = await page.query_selector_all(selector)
+                    logger.info(f"Селектор '{selector}': найдено {len(elements)} элементов")
+
+                # Получаем HTML структуру для анализа
+                try:
+                    html_content = await page.content()
+                    logger.info("📄 Анализ HTML структуры:")
+                    # Ищем все элементы с классом, содержащим 'risk'
+                    risk_elements = await page.query_selector_all("[class*='risk']")
+                    for i, el in enumerate(risk_elements):
+                        class_name = await el.get_attribute("class")
+                        logger.info(f"Элемент #{i+1} с классом: {class_name}")
+                except Exception as e:
+                    logger.error(f"❌ Ошибка при анализе HTML: {e}")
 
                 # Поиск всех иконок риска на странице
                 risk_icons = await page.query_selector_all(".index_riskIcon__u0+KY")
