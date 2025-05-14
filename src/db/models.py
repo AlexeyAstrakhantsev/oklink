@@ -187,25 +187,29 @@ class AddressRepository:
                         logging.info(f"Получен unified_type: {unified_type}")
                         
                         if unified_type:
-                            # Сохраняем в unified_addresses
-                            cur.execute("""
-                                INSERT INTO unified_addresses (address, type, address_name, labels, source)
-                                VALUES (%s, %s, %s, %s, %s)
-                                ON CONFLICT (address) 
-                                DO UPDATE SET 
-                                    type = EXCLUDED.type,
-                                    address_name = EXCLUDED.address_name,
-                                    labels = EXCLUDED.labels,
-                                    source = EXCLUDED.source
-                            """, (
-                                address_data['address'],
-                                unified_type,
-                                address_data['name'],
-                                '{}',  # пустой JSON
-                                'oklink-txs'
-                            ))
-                            conn.commit()
-                            logging.info(f"Успешно сохранен адрес {address_data['address']} в unified_addresses")
+                            # Проверяем, не совпадает ли имя с адресом
+                            if address_data['name'] == address_data['address']:
+                                logging.info(f"⏩ Пропускаем сохранение в unified_addresses - имя совпадает с адресом: {address_data['address']}")
+                            else:
+                                # Сохраняем в unified_addresses
+                                cur.execute("""
+                                    INSERT INTO unified_addresses (address, type, address_name, labels, source)
+                                    VALUES (%s, %s, %s, %s, %s)
+                                    ON CONFLICT (address) 
+                                    DO UPDATE SET 
+                                        type = EXCLUDED.type,
+                                        address_name = EXCLUDED.address_name,
+                                        labels = EXCLUDED.labels,
+                                        source = EXCLUDED.source
+                                """, (
+                                    address_data['address'],
+                                    unified_type,
+                                    address_data['name'],
+                                    '{}',  # пустой JSON
+                                    'oklink-txs'
+                                ))
+                                conn.commit()
+                                logging.info(f"Успешно сохранен адрес {address_data['address']} в unified_addresses")
                         else:
                             logging.info(f"Пропуск сохранения в unified_addresses - нет tag_unified для тега {address_data['tag']}")
                     
